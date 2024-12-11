@@ -1,5 +1,5 @@
 # Phylostratigraphy App
-VERSION = "0.2.0"
+VERSION = "0.2.2"
 
 # Requisite libraries:
 library(BiocManager)
@@ -36,36 +36,9 @@ MasterGeneLists <- readRDS("MasterGeneLists_Updated.rds")
 ph <- readRDS("ph_0.001.rds")
 levels(ph$mrca_name)[match("cellular organisms", levels(ph$mrca_name))] <-
   "Cellular Organisms"
-mya <- c(
-  "3.6 BYA",
-  "2.1 BYA",
-  "1.5 BYA",
-  "1 BYA",
-  "600 MYA",
-  "543 MYA",
-  "520 MYA",
-  "510 MYA",
-  "500 MYA",
-  "470 MYA",
-  "455 MYA",
-  "420 MYA",
-  "367 MYA",
-  "340 MYA",
-  "310 MYA",
-  "217 MYA",
-  "125 MYA",
-  "100 MYA",
-  "88 MYA",
-  "75 MYA",
-  "60 MYA",
-  "44 MYA",
-  "30 MYA",
-  "23 MYA",
-  "20 MYA",
-  "5 MYA",
-  "1.8 MYA"
-)
-levels(ph$mrca_name) <- paste0(levels(ph$mrca_name), ": ", mya)
+Final_Taxa_Emergence_Timeline_with_Cellular_Organisms <- read.csv("Final_Taxa_Emergence_Timeline_with_Cellular_Organisms.csv")
+
+levels(ph$mrca_name) <- paste0(levels(ph$mrca_name), ": ", paste0(Final_Taxa_Emergence_Timeline_with_Cellular_Organisms$Emergence..MYA., " MYA"))
 
 #up_res <- UniProt.ws::queryUniProt(query = ph$qseqid, fields = c("id", "gene_names"))
 #up <- UniProt.ws::UniProt.ws()
@@ -73,7 +46,7 @@ levels(ph$mrca_name) <- paste0(levels(ph$mrca_name), ": ", mya)
 #pathways <- fgsea::gmtPathways("c5.go.v2023.2.Hs.symbols.gmt")
 #saveRDS(pathways, file = "PhylostratigraphyApp/c5.go.v2023.2.Hs.symbols.rds")
 pathways <- readRDS("c5.go.v2023.2.Hs.symbols.rds")
-#gene_uniprot_conv_df <- UniProt.ws::select(up, keys = ph$qseqid, to = "Gene_Name")
+#gene_uniprot_conv_df <- UniPrgot.ws::select(up, keys = ph$qseqid, to = "Gene_Name")
 #saveRDS(gene_uniprot_conv_df, "PhylostratigraphyApp/gene_uniprot_conv_df.rds")
 #gene_uniprot_conv_df <- readRDS("PhylostratigraphyApp/uniprot_gene_conv_df.rds")
 #gene_uniprot_conv_df <- read_delim("uniprotkb_organism_id_9606_AND_model_or_2024_05_12.tsv.gz", 
@@ -107,7 +80,7 @@ ph_filt <- ph |>
 ui <- fluidPage(
   theme = shinytheme('flatly'),
   # Application title
-  titlePanel(paste0("FastPhyloStrat v", VERSION)),
+  titlePanel(paste0("PhyloFastStrat v", VERSION)),
   # Sidebar with a slider input for number of bins
   sidebarLayout(
     sidebarPanel(
@@ -161,21 +134,23 @@ ui <- fluidPage(
                DT::DTOutput("phylo_table")
                ),
       tabPanel("Gene map",
-               #selectInput("ps", label = "Select a phylostrata to visualize:", choices = unique(ph$mrca_name)),
-               actionButton("retrieveSTRING", "Retrieve STRING plot", value = NULL),
-               useShinyjs(),
-               extendShinyjs(script = "www/my_functions.js", functions = "loadStringData"),
-               includeScript("http://string-db.org/javascript/combined_embedded_network_v2.0.2.js"),
-               includeScript("https://blueimp.github.io/JavaScript-Canvas-to-Blob/js/canvas-to-blob.js"),
-               includeScript("https://cdnjs.cloudflare.com/ajax/libs/canvg/1.4/rgbcolor.min.js"),
-               includeScript("https://cdnjs.cloudflare.com/ajax/libs/stackblur-canvas/1.4.1/stackblur.min.js"),
-               includeScript("https://cdn.jsdelivr.net/npm/canvg/dist/browser/canvg.min.js"),
-               includeCSS("www/style.css"),
-               #plotOutput("string_plot", height = "800px") %>% withSpinner(),
+               selectInput("ps", label = "Select a phylostrata to visualize:", choices = unique(ph$mrca_name)),
+               # actionButton("retrieveSTRING", "Retrieve STRING plot", value = NULL),
+               # useShinyjs(),
+               # extendShinyjs(script = "www/my_functions.js", functions = "loadStringData"),
+               # includeScript("http://string-db.org/javascript/combined_embedded_network_v2.0.2.js"),
+               # includeScript("https://blueimp.github.io/JavaScript-Canvas-to-Blob/js/canvas-to-blob.js"),
+               # includeScript("https://cdnjs.cloudflare.com/ajax/libs/canvg/1.4/rgbcolor.min.js"),
+               # includeScript("https://cdnjs.cloudflare.com/ajax/libs/stackblur-canvas/1.4.1/stackblur.min.js"),
+               # includeScript("https://cdn.jsdelivr.net/npm/canvg/dist/browser/canvg.min.js"),
+               # includeCSS("www/style.css"),
+               plotOutput("string_plot", height = "800px") %>% withSpinner()
                ),
       tabPanel(
         "Functional enrichment plots",
         plotly::plotlyOutput("GOplot2", width = "100%", height = "700px") %>% withSpinner(),
+        numericInput(inputId = "labeltop", label = "Number of top GO-BPs to label:", value = 5, min = 1, max = 10),
+        numericInput(inputId = "cappval", label = "Max -log P-value to visualize", value = 100, min = 1, max = 100),
         plotOutput("GOplot_static", height = "700px")
         #plotly::plotlyOutput("duplicated_go_plot", width = "100%", height = "500px") %>% withSpinner()
       )
@@ -272,11 +247,13 @@ server <- function(input, output, session) {
   options = list(
     paging = TRUE,
     searching = TRUE,
-    fixedColumns = TRUE,
+    #fixedColumns = TRUE,
+    # scrollY = 400,
     autoWidth = TRUE,
     ordering = TRUE,
+    lengthMenu = c(10, 25, 50, 100),
     dom = 'tB',
-    buttons = c('copy', 'csv', 'excel')
+    buttons = c('copy', 'csv', 'excel', "pageLength")
   )
   )
   
@@ -669,11 +646,11 @@ server <- function(input, output, session) {
       label = `Term`,
       color = PS
     )) +
-      geom_hline(
-        yintercept = -log10(0.05),
-        linetype = 2,
-        color = "grey70"
-      ) +
+      # geom_hline(
+      #   yintercept = -log10(0.05),
+      #   linetype = 2,
+      #   color = "grey70"
+      # ) +
       geom_point(show.legend = F, position = position_jitter(0.1)) +
       geom_label(
         data = GO_res_df_top,
@@ -699,10 +676,14 @@ server <- function(input, output, session) {
   output$GOplot_static <- renderPlot({
     GO_res_df <- GO_df_reactive()
     
+    if(input$cappval < 100){
+      GO_res_df$pval[-log10(GO_res_df$pval) > input$cappval] <- 10^(-1*input$cappval)
+    }
+    
     GO_res_df_top <- GO_res_df %>%
       group_by(PS) %>%
-      arrange(desc(padj)) %>%
-      slice_min(n = 5, order_by = padj, with_ties = F) %>%
+      arrange(desc(pval)) %>%
+      slice_min(n = input$labeltop, order_by = pval, with_ties = F) %>%
       ungroup()
     
     ggplot(GO_res_df, aes(
@@ -711,11 +692,11 @@ server <- function(input, output, session) {
       label = `Term`,
       color = PS
     )) +
-      geom_hline(
-        yintercept = -log10(0.05),
-        linetype = 2,
-        color = "grey70"
-      ) +
+      # geom_hline(
+      #   yintercept = -log10(0.05),
+      #   linetype = 2,
+      #   color = "grey70"
+      # ) +
       geom_point(show.legend = F, position = position_jitter(0.1)) +
       ggrepel::geom_label_repel(
         data = GO_res_df_top,
@@ -723,7 +704,7 @@ server <- function(input, output, session) {
         show.legend = F,
         size = 3,
         hjust = 0.5,
-        vjust = 1, max.overlaps = 10
+        vjust = 1, max.overlaps = 30
       ) +
       scale_x_discrete(limits = levels(GO_res_df$PS)) +
       ggpubr::theme_pubr(x.text.angle = 90, legend = "none") +
