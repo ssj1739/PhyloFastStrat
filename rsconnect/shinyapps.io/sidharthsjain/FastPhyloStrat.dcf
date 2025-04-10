@@ -1,0 +1,12 @@
+name: FastPhyloStrat
+title: FastPhyloStrat
+username: sidharthsjain
+account: sidharthsjain
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 12571559
+bundleId: 9047670
+url: https://sidharthsjain.shinyapps.io/FastPhyloStrat/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE

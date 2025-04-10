@@ -26,3 +26,8 @@ package_list <- c(
   )
 
 BiocManager::install(package_list)
+
+# uniprotkb_organism_id_9606_2025_03_15_tsv <- read_delim("~/Documents/JainAnalytics/Kolabtree/Proposal1/uniprotkb_organism_id_9606_2025_03_15.tsv.gz", 
+#                                                         delim = "\t", escape_double = FALSE, 
+#                                                         trim_ws = TRUE)
+

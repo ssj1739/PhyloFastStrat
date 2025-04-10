@@ -1,0 +1,12 @@
+name: PhylostratigraphyApp
+title: PhylostratigraphyApp
+username: sidharthsjain
+account: sidharthsjain
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 11259813
+bundleId: 9047610
+url: https://sidharthsjain.shinyapps.io/PhylostratigraphyApp/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE
