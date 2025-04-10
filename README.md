@@ -1,4 +1,4 @@
-# FastPhyloStrat
+# PhyloFastStrat
 
-The code for shiny app (FastPhyloStrat) developed for Dr. Barbara Natterson-Horowitz.
+The code for shiny app (PhyloFastStrat) developed for Dr. Barbara Natterson-Horowitz.
 
