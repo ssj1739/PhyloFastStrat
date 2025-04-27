@@ -2,7 +2,7 @@
 
 install.packages('devtools')
 
-devtools::install_github("arendsee/phylostratr")
+devtools::install_github("arendsee/phylostratr", upgrade = T)
 
 install.packages("BiocManager")
 
@@ -22,10 +22,14 @@ package_list <- c(
   "STRINGdb",
   "quarto",
   "DT",
-  "tidyverse"
+  "tidyverse",
+  "googlesheets4",
+  "ggtext",
+  "shinythemes"
   )
 
-BiocManager::install(package_list)
+BiocManager::install(package_list, update = T, ask = F)
+devtools::install_github("alserglab/fgsea", upgrade = F)
 
 # uniprotkb_organism_id_9606_2025_03_15_tsv <- read_delim("~/Documents/JainAnalytics/Kolabtree/Proposal1/uniprotkb_organism_id_9606_2025_03_15.tsv.gz", 
 #                                                         delim = "\t", escape_double = FALSE, 

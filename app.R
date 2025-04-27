@@ -1,5 +1,5 @@
 # Phylostratigraphy App
-VERSION = "0.3.0a"
+VERSION = "0.3.1a"
 
 # Requisite libraries:
 library(BiocManager)
@@ -23,14 +23,20 @@ library(quarto)
 library(DT)
 library(tidyverse)
 library(shinythemes)
+library(googlesheets4)
+library(ggtext)
+
 
 ##### PREPROCESSING: #####
 # Load pre-processed data:
 # Gene list:
-MasterGeneLists <- readRDS("data/MasterGeneLists_Original.rds")
-if(file.exists("data/MasterGeneLists_Updated.rds")){
-  MasterGeneLists <- readRDS("data/MasterGeneLists_Updated.rds")
-}
+# MasterGeneLists <- readRDS("data/MasterGeneLists_Original.rds")
+# if(file.exists("data/MasterGeneLists_Updated.rds")){
+#   MasterGeneLists <- readRDS("data/MasterGeneLists_Updated.rds")
+# }
+googlesheets4::gs4_auth(cache = F)
+MasterGeneLists <- googlesheets4::read_sheet("https://docs.google.com/spreadsheets/d/1oEktKQNY8kaEFpImEW-wnoBz4dqLa3eWgrji23AFU4U/edit?gid=1728211307#gid=1728211307")
+
 
 # strata <- readRDS("9606_strata.rds")
 # Merge results into a single hittable
@@ -82,6 +88,7 @@ ph_filt <- ph |>
 my_theme <- ggplot2::theme_bw() +
   theme(
     panel.background = element_rect(fill = "white", color = "white"),
+    panel.border = element_blank(),
     panel.grid.major = element_blank(),
     panel.grid.minor = element_blank(),
     axis.line = element_line(color = "black"),
@@ -112,7 +119,7 @@ ui <- fluidPage(
       ),
       conditionalPanel(
         condition = "input.runmode",
-        textInput(inputId = "other_disease_of_interest", "Gene set name:", value = "Custom Gene List", placeholder = "Gene List"),
+        textInput(inputId = "other_disease_of_interest", "Gene set name:", value = "My Gene List", placeholder = "Gene List"),
         selectizeInput(inputId = "selectized_genes", label = "Genes to query:",
                        choices = NULL,
                        multiple = TRUE,
@@ -129,8 +136,11 @@ ui <- fluidPage(
           accept = ".csv",
           buttonLabel = "Upload"
         ),
-        actionButton(inputId = "saverds", label = "Cache custom data"),
-        textOutput("cache_message")
+        # a(href="genelist.csv", "Download example gene list.", download=NA, target="_blank"),
+        # tags$br(),
+        # tags$br(),
+        #actionButton(inputId = "saverds", label = "Cache custom data"),
+        #textOutput("cache_message")
       ),
       headerPanel(""),
       htmlOutput("numGenesMappedUP"),
@@ -231,15 +241,15 @@ server <- function(input, output, session) {
     ##### Main mapping messages #####
     output$numGenesMappedUP <- renderUI({
       # Message to show gene mapping to phylostrat results
-      HTML(paste0("Of ", length(genes_of_interest_input), " input genes, ", length(genes_of_interest), " gene IDs were cleaned and used.", "<br/>",
-        "From ", length(genes_of_interest), " cleaned input genes, ", length(genes_of_interest_found), " were mapped to UniProt IDs."))
+      HTML(paste0(length(genes_of_interest_input), " input genes; ", length(genes_of_interest), " gene IDs were valid.", "<br/>",
+        length(genes_of_interest_found), " genes correctly mapped to UniProt IDs."))
     })
     
     output$numIsoformsMappedUP <- renderUI({
       if(input$no_isoforms){
-        HTML(paste0("Alternative isoforms were excluded. ", nrow(ph_filt[ph_filt$gene %in% genes_of_interest,]), " genes were mapped to distinct UniProt IDs."))
+        HTML(paste0("Alternative isoforms were excluded. ", nrow(ph_filt[ph_filt$gene %in% genes_of_interest,]), " proteins are shown. Isoform with earliest emergence shown."))
       }else{
-        HTML(paste0("Alternative isoforms were included. ", nrow(ph[ph$Gene %in% genes_of_interest,]), " isoforms (unique UniProt IDs) were mapped from ",nrow(ph_filt[ph_filt$gene %in% genes_of_interest,]), " genes."))
+        HTML(paste0("Alternative isoforms were included. ", nrow(ph[ph$Gene %in% genes_of_interest,]), " protein isoforms are shown. Any isoform emergence shown."))
       }
     })
     
@@ -334,7 +344,8 @@ server <- function(input, output, session) {
       dplyr::count(mrca_name = as.factor(mrca_name),
                    annot_of_interest,
                    .drop = F) %>%
-      dplyr::mutate(gene_relevance = annot_of_interest)
+      dplyr::mutate(gene_relevance = annot_of_interest) %>%
+      dplyr::mutate(gene_relevance = factor(gene_relevance, levels = c(disease_name(), "All Human Genes")))
     
     # Generate plot
     ggplot(
@@ -347,34 +358,52 @@ server <- function(input, output, session) {
         label = round(n, digits = 2)
       )
     ) +
-      geom_line(aes(color = gene_relevance)) +
+      geom_line(aes(color = gene_relevance), linewidth = 1.2) +
       geom_label(
         label.size = 0.05,
-        alpha = 0.7,
-        size = 3,
+        alpha = 0.3,
+        size = 2.5,
         vjust = -0.25,
-        show.legend = F
+        show.legend = F, 
+        nudge_y = 0.1, 
+        #fontface = "bold", #size = 6
       ) +
       labs(
-        y = bquote(Number ~ of ~ novel ~ genes ~ (log[10] ~ scaled)),
+        y = bquote(Number ~ of ~ novel ~ genes ~ log[10] ~ scaled),
         x = "Phylostrata",
-        title = paste0(
-          "Comparison of evolution rates of \"",
-          disease_name(),
-          "\"\nto all other genes in human genome"
-        ),
         fill = "",
-        color = ""
+        color = "",
+        title = paste0(
+          "Emergence of <span style='color:#E41A1C;'><strong>",
+          disease_name(),
+          "</strong></span> vs <span style='color:#377EB8;'><strong>Overall Human Genes</strong></span><br>"
+        )
+        # title = paste0(
+        #   "Normalized odds ratio of emergence of <br><span style='color:#E41A1C;'><strong>",
+        #   disease_name(),
+        #   "</strong></span> to overall human genes<br>"
+        # )
       ) +
+      # ggtitle(paste0(
+      #   "Emergence of \"",
+      #   disease_name(),
+      #   "\" vs All Human Genes\n\n\n"
+      # ), ) +
       scale_color_brewer(palette = "Set1") +
       scale_fill_brewer(palette = "Set1") +
       ylim(c(0, 5)) +
+      ggpubr::labs_pubr() +
       my_theme +
-      theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+      theme(axis.text.x = element_text(angle = 90, hjust = 1), 
+            panel.background = element_blank(),
+            plot.title.position = "plot",
+            plot.title = ggtext::element_markdown(size = 12, lineheight = 1, hjust = 0.5),
+            axis.text = element_text(size = 10, face = "bold"),
+            legend.position = "none")# +
       # ggpubr::theme_pubr(x.text.angle = 90,
       #                    margin = T,
       #                    base_size = 11) +
-      ggpubr::labs_pubr()
+      #
     
   })
   
@@ -388,7 +417,7 @@ server <- function(input, output, session) {
     if(is.null(click$x) | is.null(click$y)){
       return(NULL)
     }
-    x <- click$x
+    x <- max(round(click$x), 1)
     y <- click$y
     x <- levels(ph$mrca_name)[x]
     y <- 10^y
@@ -459,34 +488,48 @@ server <- function(input, output, session) {
       pull(total_in_group)
     fixed_ratio <- min(fixed_ratio) / sum(fixed_ratio)
     
+    ratio_plot_data <- ph_by_ps %>%
+      pivot_wider(
+        id_cols = c(mrca_name),
+        names_from = gene_relevance,
+        values_from = n
+      ) %>%
+      mutate(`Other All Human Genes` = sum(`All Human Genes`) - `All Human Genes`) %>%
+      mutate(`Other Disease` = sum(.[[3]]) - .[[3]]) %>%
+      mutate(`Odds Ratio` = (.[[3]] / `Other Disease`) / .[[2]] / (`Other All Human Genes`)) %>%
+      mutate(Expected = fixed_ratio * `All Human Genes`) %>%
+      mutate(`ChiSq` = (.[[3]] - Expected)^2 / Expected) %>%
+      mutate(pchisq = pchisq(ChiSq, 1, lower.tail = F)) %>%
+      mutate(Ratio = (.[[3]] / .[[2]]) / fixed_ratio) %>%
+      filter(!is.na(Ratio))
+    
     ggplot(
-      data = ph_by_ps %>%
-        pivot_wider(
-          id_cols = c(mrca_name),
-          names_from = gene_relevance,
-          values_from = n
-        ) %>%
-        mutate(Ratio = (.[[3]] / .[[2]]) / fixed_ratio) %>%
-        filter(!is.na(Ratio)),
+      data = ratio_plot_data,
       aes(x = mrca_name, y = Ratio)
     ) +
       geom_hline(yintercept = 1, color = "grey80") +
       geom_point() +
+      geom_ribbon(aes(ymin = 1, ymax = pmax(Ratio, 1), x = mrca_name), fill = "#E41A1C", group = "a") +
       #ggpubr::theme_pubr(x.text.angle = 90) +
-      my_theme +
-      theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-      geom_line(group = "a") +
+      geom_line(group = "a", linewidth = 2) +
+      geom_text(data = ratio_plot_data %>% filter(Ratio >= 1),
+                aes(label = ifelse(pchisq < 0.05, "*", "")), vjust = 1, nudge_y = 1, size = 5) +
       labs(
         x = "Phylostrata",
         y = paste0(
-          "Ratio of Evolutionary Rate \n(Disease Genes : Total Human Genome)"
+          "Odds Ratio of Evolutionary Rate \n(Disease Genes : Total Human Genome)"
         ),
         title = paste0(
-          "Normalized ratio of novel gene emergence for \n",
+          "Normalized odds ratio of emergence of <br><span style='color:#E41A1C;'><strong>",
           disease_name(),
-          "\nto overall gene emergence in human genome"
+          "</strong></span> to overall human genes<br>"
         )
-      )
+      ) +
+      ggpubr::labs_pubr() +
+      my_theme +
+      theme(axis.text.x = element_text(angle = 90, hjust = 1),
+            plot.title.position = "plot",
+            plot.title = ggtext::element_markdown(size = 12, lineheight = 1, hjust = 0.5))
   })
   
   ##### GO reactive data ####
@@ -791,7 +834,7 @@ server <- function(input, output, session) {
       label = `Term`,
       color = PS
     )) +
-      geom_point(show.legend = F, position = position_jitter(0.1)) +
+      geom_point(show.legend = F, position = position_jitter(0.1), size = 4) +
       ggrepel::geom_label_repel(
         data = GO_res_df_top,
         aes(label = `Term`, y = as.numeric(pval)),
@@ -816,7 +859,8 @@ server <- function(input, output, session) {
         x = "Phylostrata (PS)",
         y = "P-value (Fisher test)",
         title = paste0("Top enriched GO terms by phylostrata for ", disease_name())
-      )
+      ) +
+      ggpubr::labs_pubr()
     #plotly::ggplotly(plot2, tooltip = "label")
   })
   
@@ -857,7 +901,8 @@ server <- function(input, output, session) {
         x = "Normalized Enrichment Score",
         y = "-log10 Adjusted P-value",
         title = paste0("Top enriched GO terms for ", disease_name(), " \nin PS ", x),
-      )
+      ) +
+      ggpubr::labs_pubr()
     
   })
   
