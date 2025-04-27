@@ -1,5 +1,5 @@
 # Phylostratigraphy App
-VERSION = "0.3.1a"
+VERSION = "0.3.2a"
 
 # Requisite libraries:
 library(BiocManager)
@@ -161,7 +161,10 @@ ui <- fluidPage(
                ),
       tabPanel("Rate comparison",
                plotOutput("rate_plot"),
-               DT::dataTableOutput("rate_table", height = "100%")
+               "Rates are calculated by dividing the number of genes in a given phylostrata by the total number of genes in that phylostrata.\n 
+    The odds ratio is calculated by dividing the rate of the disease gene set by the rate of the overall human genome.\n 
+    A value greater than 1 indicates that the disease gene set is enriched in that phylostrata.\n
+    The presence of an asterisk ('*') indicates that the odds ratio is significantly different from 1 (p < 0.05)."
                ),
       tabPanel("Results table",
                shinyWidgets::switchInput(inputId = "show_uniprot_ids", 
@@ -474,7 +477,7 @@ server <- function(input, output, session) {
       dplyr::distinct() %>%
       dplyr::mutate(
         mrca_name = as.factor(mrca_name),
-        annot_of_interest = as.factor(annot_of_interest)
+        annot_of_interest = relevel(as.factor(annot_of_interest), ref = "All Human Genes")
       ) %>%
       dplyr::count(mrca_name = as.factor(mrca_name),
                    annot_of_interest,
@@ -509,11 +512,11 @@ server <- function(input, output, session) {
     ) +
       geom_hline(yintercept = 1, color = "grey80") +
       geom_point() +
-      geom_ribbon(aes(ymin = 1, ymax = pmax(Ratio, 1), x = mrca_name), fill = "#E41A1C", group = "a") +
+      #geom_ribbon(aes(ymin = 1, ymax = pmax(Ratio, 1), x = mrca_name), fill = "#E41A1C", group = "a") +
       #ggpubr::theme_pubr(x.text.angle = 90) +
       geom_line(group = "a", linewidth = 2) +
       geom_text(data = ratio_plot_data %>% filter(Ratio >= 1),
-                aes(label = ifelse(pchisq < 0.05, "*", "")), vjust = 1, nudge_y = 1, size = 5) +
+                aes(label = ifelse(pchisq < 0.05, "*", "")), vjust = 1, nudge_y = 1, size = 5, color = "red") +
       labs(
         x = "Phylostrata",
         y = paste0(
