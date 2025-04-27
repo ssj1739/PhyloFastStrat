@@ -514,7 +514,7 @@ server <- function(input, output, session) {
       geom_point() +
       #geom_ribbon(aes(ymin = 1, ymax = pmax(Ratio, 1), x = mrca_name), fill = "#E41A1C", group = "a") +
       #ggpubr::theme_pubr(x.text.angle = 90) +
-      geom_line(group = "a", linewidth = 2) +
+      geom_line(group = "a", linewidth = 1.25) +
       geom_text(data = ratio_plot_data %>% filter(Ratio >= 1),
                 aes(label = ifelse(pchisq < 0.05, "*", "")), vjust = 1, nudge_y = 1, size = 5, color = "red") +
       labs(
